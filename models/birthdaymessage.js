@@ -54,6 +54,20 @@ module.exports = (sequelize, DataTypes) => {
     }
   };
 
+  BirthdayMessage.findBirtdayByUserIdAndBirthdaySent = async (userId, date) => {
+    try {
+      const result = await BirthdayMessage.findOne({
+        where: { user_id: userId, deletedAt: null, birthday_now:date, sentToUser:true },
+      });
+      return result;
+    } catch (error) {
+      console.error("Error :", error);
+      throw error;
+    }
+  };
+
+
+
   BirthdayMessage.findBirtdayByUserId = async (userId) => {
     try {
       const result = await BirthdayMessage.findAll({

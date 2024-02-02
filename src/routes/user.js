@@ -37,14 +37,16 @@ router.post(
   userController.loginUser
 );
 
-router.get("/getcroncoba", userController.cronBirthdayScheduler);
 
+router.get("/birthday",auth, userController.getBirthDay);
+
+// router.get("/getcrontial", userController.cronBirthdayScheduler);
 
 const today = new Date();
 const month = today.getMonth() + 1;
 const date = today.getDate();
 
-cron.schedule(`03 0 ${date} ${month} *`, () => {
+cron.schedule(`0 9 ${date} ${month} *`, () => {
   userController.cronBirthdayScheduler(month, date)
 });
 

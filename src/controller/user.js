@@ -6,29 +6,15 @@ const { Op } = require("sequelize");
 const axios = require("axios");
 const db = require("../../models");
 
-const instance = axios.create({
-  timeout: 5000,
-});
 
-// Things to consider. You can do it after all program running well
-// • Make sure your code is scalable and has a good level of abstraction. For example, in
-// the future we may want to add a happy anniversary message as well.
-// • Make sure your code is tested and testable
-// • Be mindful of race conditions, duplicate messages are unacceptable
-// • Think about scalability (with the limits of localhost), will the system be able to handle
-// thousands of birthdays a day?
-
-// Make the birtday using local time
-
-// Make the race condition beetween cron and interval from FE
-exports.cronBirthdayScheduler = async (req, res) => {
+exports.cronBirthdayScheduler = async (month, date) => {
   try {
-    const today = new Date();
-    const month = today.getMonth() + 1;
-    const date = today.getDate();
+    // const today = new Date();
+    // const month = today.getMonth() + 1;
+    // const date = today.getDate();
 
-    console.log("date", date);
-    console.log("month", month);
+    // console.log("date", date);
+    // console.log("month", month);
 
     const usersGet = await users.findAllByBirthdayTodayLockTrue(month, date);
     const birthdayGet =
@@ -88,7 +74,6 @@ exports.cronBirthdayScheduler = async (req, res) => {
 
     birthdayGet.forEach(async (user) => {
       try {
-        console.log(",sad", user.birthday_messages_id);
         const monthName = getMonthName(user.birthDayDate);
         const dayName = getDayName(user.birthDayMonth);
 
@@ -131,13 +116,13 @@ exports.cronBirthdayScheduler = async (req, res) => {
       }
     });
 
-    res.status(200).json({
-      status: 200,
-      message: "Successfully added data",
-    });
+    // res.status(200).json({
+    //   status: 200,
+    //   message: "Successfully send data",
+    // });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ status: 500, message: "Internal error" });
+    // res.status(500).json({ status: 500, message: "Internal error" });
   }
 };
 
@@ -190,6 +175,95 @@ exports.loginUser = async (req, res) => {
     res.send({
       status: "success",
       data: responseData,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ status: 500, message: "Internal error" });
+  }
+};
+
+exports.getBirthDay = async (req, res) => {
+  try {
+    const { id } = req.idUser;
+
+    console.log(id);
+    let checkUser = await users.findOneById(id);
+
+    if (!checkUser) {
+      return res.status(404).json({ status: 404, message: "User not found" });
+    }
+
+    console.log(checkUser);
+    let d = new Date();
+    let month = d.getMonth() + 1;
+    let date = d.getDate();
+    const usersGet = await users.findOneByBirthdayTodayLockTrue(
+      month,
+      date,
+      checkUser.id
+    );
+
+    let birthDayGet = undefined;
+    if (usersGet.length > 0) {
+      if (usersGet[0].month == month && date == usersGet[0].date) {
+        d = new Date(
+          `${d.getFullYear()}-${usersGet[0].month}-${usersGet[0].date}`
+        );
+
+        const checkMessage =
+          await birthday_messages.findBirtdayByUserIdAndBirthdaySent(
+            usersGet[0].id,
+            d
+          );
+
+        let bodyBirthday = {
+          user_id: usersGet[0].id,
+          sentToService: false,
+          birthday_now: d,
+          sentToUser: true,
+          relevant: true,
+          message: `Hey, ${usersGet[0].first_name} ${usersGet[0].last_name}  it's your birthday`,
+        };
+
+        if (checkMessage && checkMessage.sentToUser == true) {
+          return res.status(200).json({
+            status: 200,
+            message: "The birthday has sent",
+            data: checkMessage,
+          });
+        }
+        if (!checkMessage) {
+          birthDayGet = await birthday_messages.create(bodyBirthday);
+        } else if (checkMessage) {
+          birthDayGet = checkMessage;
+          birthDayGet = {
+            sentToUser: true,
+            id: birthDayGet.id,
+            relevant: true,
+          };
+          await birthday_messages.update(birthDayGet, {
+            where: { id: birthDayGet.id, deletedAt: null },
+          });
+
+          birthDayGet = await birthday_messages.findOne({
+          where: {id : checkMessage.id}
+          })
+        }
+      }
+    }
+
+    if (!birthDayGet) {
+      return res.status(200).json({
+        status: 200,
+        message: "You are not have birthday today",
+        data: birthDayGet,
+      });
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: "Successfully Sent BirthDay",
+      data: birthDayGet,
     });
   } catch (err) {
     console.log(err);
